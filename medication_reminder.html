@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>💊 Medication Reminder</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to right, #e0c3fc, #8ec5fc);
+      color: #333;
+    }
+    header {
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    main {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      padding: 20px;
+    }
+    section {
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+      padding: 20px;
+      margin: 10px;
+      flex: 1;
+      min-width: 320px;
+      max-width: 500px;
+      transition: transform 0.2s ease;
+    }
+    section:hover {
+      transform: scale(1.02);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 15px;
+      color: #444;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-top: 5px;
+      font-size: 14px;
+    }
+    button {
+      background: linear-gradient(45deg, #ff9a9e, #fad0c4);
+      border: none;
+      border-radius: 8px;
+      padding: 10px 15px;
+      margin-top: 15px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: linear-gradient(45deg, #a1c4fd, #c2e9fb);
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    li {
+      background: #fdfdfd;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    }
+    .due-now {
+      background: #ffe6e6;
+      border-left: 6px solid #ff4d4d;
+    }
+    .taken {
+      background: #e6ffe6;
+      border-left: 6px solid #33cc33;
+      text-decoration: line-through;
+    }
+    .medicine-info {
+      flex: 1;
+      margin-left: 10px;
+    }
+    .actions button {
+      margin-left: 5px;
+    }
+  </style>
+</head>
+<body>
+  <header>💊 Medication Reminder</header>
+  <main>
+    <section>
+      <h2>➕ Add Medicine</h2>
+      <form id="medForm">
+        <label>💊 Medicine Name: <input type="text" id="medName" required></label>
+        <label>🔢 Dose: <input type="text" id="medDose"></label>
+        <label>📝 Notes: <textarea id="medNotes"></textarea></label>
+        <label>⏰ Times per Day (comma separated, e.g., 08:00,14:00): <input type="text" id="medTimes" required></label>
+        <label>📆 Start Date: <input type="date" id="startDate" required></label>
+        <label>📆 End Date: <input type="date" id="endDate"></label>
+        <button type="submit">💾 Save Medicine</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>📋 Today’s Schedule</h2>
+      <ul id="scheduleList"></ul>
+    </section>
+  </main>
+
+  <script>
+    let medicines = JSON.parse(localStorage.getItem('medicines')||'[]');
+
+    function saveMedicines(){
+      localStorage.setItem('medicines', JSON.stringify(medicines));
+    }
+
+    function renderSchedule(){
+      const scheduleList=document.getElementById('scheduleList');
+      scheduleList.innerHTML='';
+      const today=new Date().toISOString().split('T')[0];
+      medicines.forEach((med,idx)=>{
+        const start=med.startDate;
+        const end=med.endDate || today;
+        if(today>=start && today<=end){
+          med.times.forEach(time=>{
+            const li=document.createElement('li');
+            const now=new Date();
+            const doseTime=new Date(today+'T'+time);
+            const diff=(doseTime-now)/1000;
+            if(diff<=60 && diff>=0) li.classList.add('due-now');
+            if(med.taken&&med.taken[today]&&med.taken[today].includes(time)) li.classList.add('taken');
+            li.innerHTML=`
+              <div class="medicine-info">💊 <strong>${med.name}</strong> (${med.dose})<br>
+              ⏰ ${time} | 📝 ${med.notes || ''}<br>
+              <small>📆 ${today}</small></div>
+              <div class="actions">
+                <button onclick="markTaken(${idx},'${today}','${time}')">✅ Taken</button>
+                <button onclick="editMedicine(${idx})">✏️ Edit</button>
+                <button onclick="deleteMedicine(${idx})">🗑️ Delete</button>
+              </div>`;
+            scheduleList.appendChild(li);
+          });
+        }
+      });
+    }
+
+    function markTaken(idx,date,time){
+      if(!medicines[idx].taken) medicines[idx].taken={};
+      if(!medicines[idx].taken[date]) medicines[idx].taken[date]=[];
+      if(!medicines[idx].taken[date].includes(time)) medicines[idx].taken[date].push(time);
+      saveMedicines();
+      renderSchedule();
+    }
+
+    function deleteMedicine(idx){
+      medicines.splice(idx,1);
+      saveMedicines();
+      renderSchedule();
+    }
+
+    function editMedicine(idx){
+      const med=medicines[idx];
+      document.getElementById('medName').value=med.name;
+      document.getElementById('medDose').value=med.dose;
+      document.getElementById('medNotes').value=med.notes;
+      document.getElementById('medTimes').value=med.times.join(',');
+      document.getElementById('startDate').value=med.startDate;
+      document.getElementById('endDate').value=med.endDate;
+      medicines.splice(idx,1);
+      saveMedicines();
+      renderSchedule();
+    }
+
+    document.getElementById('medForm').addEventListener('submit',e=>{
+      e.preventDefault();
+      const med={
+        name:document.getElementById('medName').value,
+        dose:document.getElementById('medDose').value,
+        notes:document.getElementById('medNotes').value,
+        times:document.getElementById('medTimes').value.split(',').map(t=>t.trim()),
+        startDate:document.getElementById('startDate').value,
+        endDate:document.getElementById('endDate').value,
+        taken:{}
+      };
+      medicines.push(med);
+      saveMedicines();
+      renderSchedule();
+      e.target.reset();
+    });
+
+    renderSchedule();
+  </script>
+</body>
+</html>
